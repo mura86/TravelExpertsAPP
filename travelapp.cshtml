@@ -1,0 +1,120 @@
+using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Data.SqlClient;
+using System.Linq;
+using System.Windows.Forms;
+
+namespace TravelExpertsApp
+{
+    public partial class MainForm : Form
+    {
+        private const string ConnectionString = @"Data Source=.\SQLEXPRESS;Initial Catalog=TravelExperts;Integrated Security=True";
+
+        public MainForm()
+        {
+            InitializeComponent();
+        }
+
+        private void MainForm_Load(object sender, EventArgs e)
+        {
+            LoadPackages();
+            LoadSuppliers();
+            LoadProducts();
+        }
+
+        private void LoadPackages()
+        {
+            using (SqlConnection connection = new SqlConnection(ConnectionString))
+            {
+                string query = "SELECT * FROM Packages";
+                SqlCommand command = new SqlCommand(query, connection);
+                SqlDataAdapter adapter = new SqlDataAdapter(command);
+                DataTable dataTable = new DataTable();
+                adapter.Fill(dataTable);
+                packagesGridView.DataSource = dataTable;
+            }
+        }
+
+        private void LoadSuppliers()
+        {
+            using (SqlConnection connection = new SqlConnection(ConnectionString))
+            {
+                string query = "SELECT * FROM Suppliers";
+                SqlCommand command = new SqlCommand(query, connection);
+                SqlDataAdapter adapter = new SqlDataAdapter(command);
+                DataTable dataTable = new DataTable();
+                adapter.Fill(dataTable);
+                suppliersGridView.DataSource = dataTable;
+            }
+        }
+
+        private void LoadProducts()
+        {
+            using (SqlConnection connection = new SqlConnection(ConnectionString))
+            {
+                string query = "SELECT * FROM Products";
+                SqlCommand command = new SqlCommand(query, connection);
+                SqlDataAdapter adapter = new SqlDataAdapter(command);
+                DataTable dataTable = new DataTable();
+                adapter.Fill(dataTable);
+                productsGridView.DataSource = dataTable;
+            }
+        }
+
+        private void packagesGridView_CellClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex >= 0)
+            {
+                DataGridViewRow row = packagesGridView.Rows[e.RowIndex];
+                int packageId = Convert.ToInt32(row.Cells["PackageId"].Value);
+                LoadProductsSuppliersForPackage(packageId);
+            }
+        }
+
+        private void LoadProductsSuppliersForPackage(int packageId)
+        {
+            using (SqlConnection connection = new SqlConnection(ConnectionString))
+            {
+                string query = @"SELECT ps.ProductSupplierId, p.ProdName, s.SupName, ps.SupplierId, ps.ProductId, ps.PsBasePrice, ps.PsCommission
+                                FROM Products_Suppliers ps
+                                JOIN Products p ON ps.ProductId = p.ProductId
+                                JOIN Suppliers s ON ps.SupplierId = s.SupplierId
+                                WHERE ps.ProductSupplierId IN
+                                (
+                                    SELECT ProductSupplierId
+                                    FROM Packages_Products_Suppliers
+                                    WHERE PackageId = @PackageId
+                                )";
+                SqlCommand command = new SqlCommand(query, connection);
+                command.Parameters.AddWithValue("@PackageId", packageId);
+                SqlDataAdapter adapter = new SqlDataAdapter(command);
+                DataTable dataTable = new DataTable();
+                adapter.Fill(dataTable);
+                productsSuppliersGridView.DataSource = dataTable;
+            }
+        }
+
+        private void addPackageButton_Click(object sender, EventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(pkgNameTextBox.Text))
+            {
+                MessageBox.Show("Package name is required", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            if (pkgStartDatePicker.Value >= pkgEndDatePicker.Value)
+            {
+                MessageBox.Show("Package end date must be later than package start date", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            decimal basePrice;
+            if (!decimal.TryParse(pkgBasePriceTextBox.Text, out basePrice))
+            {
+                MessageBox.Show("Base price must be a decimal value", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            decimal agencyCommission;
+            if (!decimal.TryParse(pkgAgency
